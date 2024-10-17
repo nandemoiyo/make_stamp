@@ -12,7 +12,6 @@ uploaded_file = st.file_uploader(
 )
 
 if uploaded_file is not None:
-    # アップロードされた画像を開く
     image = Image.open(uploaded_file)
     st.image(image, caption="アップロードされた画像", use_column_width=True)
 
@@ -20,7 +19,6 @@ if uploaded_file is not None:
     with st.spinner("背景を透過中..."):
         output_image = remove(image)
 
-    # 透過画像の表示
     st.image(output_image, caption="背景が透過された画像", use_column_width=True)
 
     # ユーザーからのテキスト入力
@@ -28,10 +26,7 @@ if uploaded_file is not None:
 
     # 確定ボタン
     if st.button("確定"):
-        # 初期状態で透過画像の中央に文字を配置
         center_x, center_y = output_image.width // 2, output_image.height // 2
-
-        # フォント設定
         font = ImageFont.truetype("arial.ttf", 40)
         draw = ImageDraw.Draw(output_image)
         text_width, text_height = draw.textsize(text_input, font=font)
@@ -44,12 +39,12 @@ if uploaded_file is not None:
             fill="black"
         )
 
-        # 画像を保存し、JavaScriptで表示＆ドラッグ可能にする
+        # 画像を保存して表示
         buf = io.BytesIO()
         output_image.save(buf, format="PNG")
         byte_im = buf.getvalue()
 
-        # JavaScriptを埋め込み、ドラッグ可能にする
+        # JavaScriptでドラッグ可能にする
         st.markdown(
             f"""
             <div id="draggable" style="position: absolute; top: {center_y}px; left: {center_x}px; font-size: 24px; color: black; cursor: move;">
@@ -72,46 +67,46 @@ if uploaded_file is not None:
             container.addEventListener("mouseup", dragEnd, false);
             container.addEventListener("mousemove", drag, false);
 
-            function dragStart(e) {
-                if (e.type === "touchstart") {
+            function dragStart(e) {{
+                if (e.type === "touchstart") {{
                     initialX = e.touches[0].clientX - xOffset;
                     initialY = e.touches[0].clientY - yOffset;
-                } else {
+                }} else {{
                     initialX = e.clientX - xOffset;
                     initialY = e.clientY - yOffset;
-                }
+                }}
 
-                if (e.target === dragItem) {
+                if (e.target === dragItem) {{
                     active = true;
-                }
-            }
+                }}
+            }}
 
-            function dragEnd() {
+            function dragEnd() {{
                 active = false;
-            }
+            }}
 
-            function drag(e) {
-                if (active) {
+            function drag(e) {{
+                if (active) {{
                     e.preventDefault();
 
-                    if (e.type === "touchmove") {
+                    if (e.type === "touchmove") {{
                         currentX = e.touches[0].clientX - initialX;
                         currentY = e.touches[0].clientY - initialY;
-                    } else {
+                    }} else {{
                         currentX = e.clientX - initialX;
                         currentY = e.clientY - initialY;
-                    }
+                    }}
 
                     xOffset = currentX;
                     yOffset = currentY;
 
                     setTranslate(currentX, currentY, dragItem);
-                }
-            }
+                }}
+            }}
 
-            function setTranslate(xPos, yPos, el) {
+            function setTranslate(xPos, yPos, el) {{
                 el.style.transform = "translate3d(" + xPos + "px, " + yPos + "px, 0)";
-            }
+            }}
             </script>
             """,
             unsafe_allow_html=True
