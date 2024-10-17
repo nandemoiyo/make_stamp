@@ -12,6 +12,7 @@ uploaded_file = st.file_uploader(
 )
 
 if uploaded_file is not None:
+    # アップロードされた画像を開く
     image = Image.open(uploaded_file)
     st.image(image, caption="アップロードされた画像", use_column_width=True)
 
@@ -27,7 +28,9 @@ if uploaded_file is not None:
     # 確定ボタン
     if st.button("確定"):
         center_x, center_y = output_image.width // 2, output_image.height // 2
-        font = ImageFont.truetype("arial.ttf", 40)
+
+        # デフォルトフォントを使用
+        font = ImageFont.load_default()
         draw = ImageDraw.Draw(output_image)
         text_width, text_height = draw.textsize(text_input, font=font)
 
