@@ -1,10 +1,9 @@
 import streamlit as st
 from rembg import remove
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 import io
-import os
 
-st.title("背景透過＆文字スタンプアプリ")
+st.title("背景透過＆自動トリミングアプリ")
 
 uploaded_file = st.file_uploader("画像をアップロードしてください", type=["jpg", "jpeg", "png"])
 
@@ -17,83 +16,56 @@ if uploaded_file is not None:
 
     st.image(output_image, caption="背景が透過された画像", use_column_width=True)
 
-    st.subheader("文字スタンプを追加")
-    custom_text = st.text_input("任意の文字列を入力", "ありがとう")
+    # 透過部分を検出し、正方形で切り取る処理
+    def get_transparent_bounds(img):
+        """透過部分の境界を取得する"""
+        img = img.convert("RGBA")
+        pixels = img.load()
 
-    st.subheader("文字の設定")
+        left, top = img.width, img.height
+        right, bottom = 0, 0
 
-    col1, col2 = st.columns(2)
-    with col1:
-        x_position = st.slider("左右", 0, output_image.width, output_image.width // 2)
-    with col2:
-        y_position = st.slider("上下", 0, output_image.height, output_image.height // 2)
+        for x in range(img.width):
+            for y in range(img.height):
+                _, _, _, alpha = pixels[x, y]
+                if alpha != 0:  # 透明でないピクセルを検出
+                    left = min(left, x)
+                    top = min(top, y)
+                    right = max(right, x)
+                    bottom = max(bottom, y)
 
-    col3, col4 = st.columns(2)
-    with col3:
-        font_size = st.slider("フォントサイズ", 10, 100, 50)
-    with col4:
-        angle = st.slider("角度", -180, 180, 0)
+        return left, top, right, bottom
 
-    font_color = st.color_picker("フォントカラー", "#000000")
+    # 透過領域の境界取得
+    left, top, right, bottom = get_transparent_bounds(output_image)
 
-    font_paths = [
-        "C:/Windows/Fonts/meiryob.ttc",
-        "C:/Windows/Fonts/yugothb.ttc",
-    ]
-    selected_font_path = st.selectbox("フォントを選択", font_paths)
+    # 正方形にトリミングするための座標計算
+    width = right - left
+    height = bottom - top
+    square_size = max(width, height)  # 正方形のサイズは幅・高さの大きい方に合わせる
 
-    try:
-        font = ImageFont.truetype(selected_font_path, font_size)
-    except IOError:
-        st.error(f"フォントファイルが見つかりません: {selected_font_path}")
-        st.stop()
+    # 正方形の中央を画像の透過部分に合わせる
+    center_x = (left + right) // 2
+    center_y = (top + bottom) // 2
 
-    draw = ImageDraw.Draw(output_image)
+    # 正方形の切り取り範囲を計算
+    left = max(0, center_x - square_size // 2)
+    top = max(0, center_y - square_size // 2)
+    right = min(output_image.width, left + square_size)
+    bottom = min(output_image.height, top + square_size)
 
-    rotated_text = Image.new('RGBA', (font_size * len(custom_text) * 2, font_size * 2))
-    draw_rotated = ImageDraw.Draw(rotated_text)
-    draw_rotated.text((0, 0), custom_text, font=font, fill=font_color)
-    rotated_text = rotated_text.rotate(angle, expand=True, resample=Image.BICUBIC)
+    # 正方形にトリミング
+    cropped_image = output_image.crop((left, top, right, bottom))
 
-    text_width, text_height = rotated_text.size
-    paste_x = x_position - text_width // 2
-    paste_y = y_position - text_height // 2
-    output_image.paste(rotated_text, (paste_x, paste_y), rotated_text)
+    st.image(cropped_image, caption="正方形にトリミングされた画像", use_column_width=True)
 
-
-    st.image(output_image, caption="文字が追加された画像", use_column_width=True)
-
-    st.subheader("トリミング")
-
-    # トリミング方法の選択
-    trim_method = st.radio("トリミング方法", ("正方形", "上下左右"))
-
-    if trim_method == "正方形":
-        square_size = st.slider("正方形のサイズ", 0, min(output_image.width, output_image.height), min(output_image.width, output_image.height))
-        center_x = output_image.width // 2
-        center_y = output_image.height // 2
-        left = center_x - square_size // 2
-        top = center_y - square_size // 2
-        right = center_x + square_size // 2
-        bottom = center_y + square_size // 2
-        cropped_image = output_image.crop((left, top, right, bottom))
-
-    elif trim_method == "上下左右":
-        left = st.number_input("左", min_value=0, max_value=output_image.width, value=0)
-        top = st.number_input("上", min_value=0, max_value=output_image.height, value=0)
-        right = st.number_input("右", min_value=0, max_value=output_image.width, value=output_image.width)
-        bottom = st.number_input("下", min_value=0, max_value=output_image.height, value=output_image.height)
-        cropped_image = output_image.crop((left, top, right, bottom))
-
-
-    st.image(cropped_image, caption="トリミング後の画像", use_column_width=True)
-
+    # 画像をダウンロードできるようにする
     buf = io.BytesIO()
     cropped_image.save(buf, format="PNG")
     byte_im = buf.getvalue()
     st.download_button(
         label="透過画像をダウンロード",
         data=byte_im,
-        file_name="transparent_image_with_text.png",
+        file_name="cropped_transparent_image.png",
         mime="image/png"
     )
